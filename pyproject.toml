@@ -1,5 +1,5 @@
 [project]
-name = "esi"
+name = "smart-system-engineering"
 version = "0.1.0"
 description = ""
 authors = [
@@ -8,7 +8,9 @@ authors = [
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "pyautogui (>=0.9.54,<0.10.0)"
+    "apify-client (>=2.3.0,<3.0.0)",
+    "kaggle (>=1.8.2,<2.0.0)",
+    "pandas (>=2.3.3,<3.0.0)"
 ]
 
 [tool.poetry]
