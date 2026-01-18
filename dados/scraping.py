@@ -17,7 +17,7 @@ kaggle.api.dataset_download_files(
     unzip=True
 )
 
-df = pd.read_csv("adult.csv", na_values='?')
+df = pd.read_csv(csv_path, na_values='?')
 
 # converte para lista de registros (scraping dos dados)
 records = df.to_dict(orient="records")
