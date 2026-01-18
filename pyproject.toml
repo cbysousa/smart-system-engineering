@@ -10,7 +10,10 @@ requires-python = ">=3.12"
 dependencies = [
     "apify-client (>=2.3.0,<3.0.0)",
     "kaggle (>=1.8.2,<2.0.0)",
-    "pandas (>=2.3.3,<3.0.0)"
+    "pandas (>=2.3.3,<3.0.0)",
+    "seaborn (>=0.13.2,<0.14.0)",
+    "matplotlib (>=3.10.8,<4.0.0)",
+    "scikit-learn (>=1.8.0,<2.0.0)"
 ]
 
 [tool.poetry]
@@ -19,3 +22,8 @@ packages = [{include = "esi", from = "src"}]
 [build-system]
 requires = ["poetry-core>=2.0.0,<3.0.0"]
 build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "ipykernel (>=7.1.0,<8.0.0)"
+]
