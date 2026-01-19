@@ -155,3 +155,54 @@ plt.title('Curva ROC - Comparação de Modelos', fontsize=16)
 plt.legend(loc="lower right", fontsize=12)
 plt.grid(alpha=0.3)
 plt.savefig('grafico_curvaROC.jpg')
+
+# ==========================================
+# BLOCO FINAL: RELATÓRIO E SALVAMENTO (ATUALIZADO)
+# ==========================================
+import joblib
+import os
+from sklearn.metrics import accuracy_score
+from sklearn.model_selection import cross_val_score
+
+print("\n====== Gerando Relatório e Salvando Modelo (Parte 3) ======\n")
+
+# Configurando pasta de saída
+pasta_destino = 'models_output'
+if not os.path.exists(pasta_destino):
+    os.makedirs(pasta_destino)
+
+# Caminhos dos arquivos
+arquivo_relatorio = os.path.join(pasta_destino, 'relatorio_performance.txt')
+arquivo_modelo = os.path.join(pasta_destino, 'modelo_adult_income.pkl')
+
+# 1. Gerando o Relatório de Performance
+print(f"Comparando modelos e salvando em: {arquivo_relatorio} ...")
+
+with open(arquivo_relatorio, "w") as f:
+    f.write("=========================================\n")
+    f.write("   RELATÓRIO DE PERFORMANCE DOS MODELOS  \n")
+    f.write("=========================================\n\n")
+    
+    # Itera sobre todos os modelos que você testou
+    for nome, modelo in modelos.items():
+        # Vamos fazer uma validação rápida (cross-validation) para ter uma métrica robusta
+        # cv=5 significa que ele testa 5 vezes e tira a média
+        scores = cross_val_score(modelo, X, Y, cv=5, scoring='accuracy')
+        media_acc = scores.mean() * 100
+        
+        linha = f"Modelo: {nome:<20} | Acurácia Média: {media_acc:.2f}%\n"
+        print(linha.strip()) # Mostra no terminal
+        f.write(linha)       # Salva no arquivo
+
+    f.write("\n=========================================\n")
+    f.write("Modelo Vencedor escolhido para Produção: Gradient Boost\n")
+    f.write("=========================================\n")
+
+# 2. Treinando e Salvando o Campeão (Gradient Boost)
+print(f"\nSalvando o modelo campeão em: {arquivo_modelo} ...")
+
+modelo_final = modelos["Gradient Boost"]
+modelo_final.fit(X, Y) # Treina com tudo antes de salvar
+joblib.dump(modelo_final, arquivo_modelo)
+
+print(f"✅ Sucesso! Relatório e Modelo salvos na pasta '{pasta_destino}'.")

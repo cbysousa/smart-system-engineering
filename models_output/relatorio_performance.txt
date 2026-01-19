@@ -1,0 +1,12 @@
+=========================================
+   RELATÓRIO DE PERFORMANCE DOS MODELOS  
+=========================================
+
+Modelo: Random Forest        | Acurácia Média: 80.38%
+Modelo: KNN                  | Acurácia Média: 85.76%
+Modelo: Regressão Logística  | Acurácia Média: 80.28%
+Modelo: Gradient Boost       | Acurácia Média: 86.04%
+
+=========================================
+Modelo Vencedor escolhido para Produção: Gradient Boost
+=========================================
