@@ -1,142 +1,157 @@
 import pandas as pd
-import numpy as np
+import matplotlib.pyplot as plt
 from sklearn.pipeline import Pipeline
-from sklearn.linear_model import LogisticRegression
+from sklearn.compose import ColumnTransformer
 from sklearn.neighbors import KNeighborsClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.preprocessing import RobustScaler,OneHotEncoder
+from sklearn.metrics import roc_curve, auc, roc_auc_score, accuracy_score
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.model_selection import StratifiedKFold, train_test_split, cross_validate
-import matplotlib.pyplot as plt
-from sklearn.metrics import roc_curve, auc, roc_auc_score
-import os
-from sklearn.metrics import accuracy_score, f1_score, precision_score, recall_score 
 
 # importando csv e transformando em dataset
-path_dataset = "dados/adult_processado.csv"
+path_dataset = "dados/adult_limpo.csv"
 df = pd.read_csv(path_dataset)
 
-# definindo coluna alvo, e dividindo em treino e teste
+# definindo coluna alvo, e dividindo em treino (70%) e teste (30%) ; estratificação mantém proporção das classes
 coluna_alvo = "income"
 X = df.drop(columns=[coluna_alvo])
 Y = df[coluna_alvo]
+
 X_treino, X_teste, Y_treino, Y_teste = train_test_split(X, Y, test_size=0.3, random_state=42, stratify=Y)
 
+# separação de colunas numéricas e categóricas 
+colunas_numericas = ['age','educational-num','capital-gain','capital-loss','hours-per-week']
+colunas_categoricas = ['workclass','marital-status','occupation','relationship','race','gender','native-country']
 
-def model_random_forest():
-    return RandomForestClassifier(n_estimators=100, random_state=42, max_depth=10) # limitando a altura da árvore, afim de evitar overfitting
+# pré-processamento
+processor = ColumnTransformer(transformers=[
+    ('num', RobustScaler(), colunas_numericas), # escala os dados numéricos de acordo com mediana e intervalo interquartil
+    ('cat', OneHotEncoder(handle_unknown='ignore'), colunas_categoricas)  # transformando dados categóricos em variáveis binárias
+])
 
-def model_knn():
-    return KNeighborsClassifier(n_neighbors=5)
+def get_pipelines():
+    
+    pipelines = {}
+    
+    # Random forest 
+    ''' 
+        Ajuste de hiperparâmetros:
+    - n_estimators=100 -> número balanceado de árvores geradas
+    - max_depth=12 -> profundidade máxima de árvores 
+    - class_weight = 'balanced' -> dá mais peso à classe minoria (>50k)
+    
+    '''
+    pipelines["Random Forest"] = Pipeline([
+        ('preprocessor', processor), 
+        ('model', RandomForestClassifier(n_estimators=100, max_depth=12, class_weight='balanced', random_state=42))
+    ])
+    
+    # KNN 
+    '''  Ajuste de hiperparâmetros:
+    - n_neighbors=50 -> quantidade de vizinhos ; valores mais baixos causaram overfitting. ao aumentar o valor, tivemos resultados mais positivos
+    - weights='uniform' -> todos os vizinhos possuem o mesmo peso.'''
+    pipelines["KNN"] = Pipeline([
+        ('preprocessor', processor),
+        ('model', KNeighborsClassifier(n_neighbors=50, weights='uniform')) 
+    ])
+    
+    # Regressão Logística 
+    ''' 
+        Ajuste de hiperparâmetros:
+    - max_iter = 2000 -> O dataset é relativamente grande (>40k linhas), além de possuir muitas features, o que pede um maior número de iterações 
+    - solver = 'liblinear' -> 
+    - class_weight='balanced' -> ajusta os pesos de forma inversamente proporcional à frequência das classes ; como vimos na AED, a classe >50k é MINORIA!
+    '''
+    pipelines["Regressão Logística"] = Pipeline([
+        ('preprocessor', processor),
+        ('model', LogisticRegression(max_iter=2000, random_state=42, solver='liblinear', class_weight='balanced'))
+    ])
+    
+    # Gradient Boost
+    pipelines["Gradient Boost"] = Pipeline([
+        ('preprocessor', processor),
+        ('model', GradientBoostingClassifier(random_state=42))
+    ])
+    
+    return pipelines
 
-def model_regressao_logistica():
-    return LogisticRegression(max_iter=2000, random_state=42, solver='liblinear')
+modelos = get_pipelines()
 
-def model_xgboost():
-    return GradientBoostingClassifier(random_state=42)
+# divisão do conjunto de treino em 5 partes, evitando possíveis ordenações  
+skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42) 
 
-modelos = {
-    "Logistic Regression": model_regressao_logistica(),
-    "KNN": model_knn(),
-    "Random Forest": model_random_forest(),
-    "XGBoost (Gradient)": model_xgboost()
-}
-
-# Define 5 divisões (folds), embaralhando os dados antes
-skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-
-# Lista de métricas que queremos calcular de uma vez
+# métricas utilizadas para análise dos modelos
 metricas = ['accuracy', 'precision', 'recall', 'f1', 'roc_auc']
 
-print("\n--- INICIANDO VALIDAÇÃO CRUZADA (STRATIFIED K-FOLD) ---\n")
+print("\n====== Validação cruzada ======\n")
 
 for nome, modelo in modelos.items():
-    print(f"Avaliando {nome}")
+    print(f"\nAvaliando {nome}")
     
-    # O cross_validate faz tudo: divide, treina e avalia 5 vezes
-    # Atenção: Passamos X e Y inteiros aqui, não X_treino/X_teste
-    resultados = cross_validate(modelo, X, Y, cv=skf, scoring=metricas)
+    resultados = cross_validate(modelo, X_treino, Y_treino, cv=skf, scoring=metricas)
     
-    # Os resultados vêm como listas (ex: 5 acurácias). Vamos pegar a média e o desvio padrão.
-    acuracia_media = resultados['test_accuracy'].mean()
-    f1_media = resultados['test_f1'].mean()
-    precision = resultados['test_precision'].mean()
-    recall = resultados['test_recall'].mean()
-    auc_media = resultados['test_roc_auc'].mean()
-    
-    print(f"Resultados Médios para {nome}:")
-    print(f" >> Acurácia: {acuracia_media:.4f} (± {resultados['test_accuracy'].std():.4f})")
-    print(f" >> Precision: {precision:.4f} (± {resultados['test_precision'].std():.4f})")
-    print(f" >> Recall:    {recall:.4f} (± {resultados['test_recall'].std():.4f})")
-    print(f" >> F1-Score: {f1_media:.4f} (± {resultados['test_f1'].std():.4f})")
-    print(f" >> ROC-AUC:  {auc_media:.4f}")
-    print("-" * 40)
-    
-print("\n--- GERANDO GRÁFICO DA CURVA ROC ---\n")
+    # desempenho médio dos modelos, com as métricas escolhidas
+    print(f"Desempenho médio - {nome}:")
+    print(f" >> ROC-AUC:  {resultados['test_roc_auc'].mean():.4f}")
+    print(f" >> Acurácia: {resultados['test_accuracy'].mean():.4f}")
+    print(f" >> Precision: {resultados['test_precision'].mean():.4f}")
+    print(f" >> Recall:    {resultados['test_recall'].mean():.4f}")
+    print(f" >> F1-Score: {resultados['test_f1'].mean():.4f}")
+    print("-" * 30)
 
+
+print("\n====== Treinamento final + Geração de gráfico de curva ROC ======\n")
+
+
+plt.figure(figsize=(10, 8)) # tamanho do gráfico
 for nome, modelo in modelos.items():
     
-    # Precisamos treinar o modelo nos dados de treino para testar no X_teste
-    # (O K-Fold anterior treinou e descartou, então treinamos de novo aqui para o gráfico)
+    # treinamento do modelo
     modelo.fit(X_treino, Y_treino)
     
     if hasattr(modelo, "predict_proba"):
-        # Pega a probabilidade da classe 1 (>50k)
-        y_prob = modelo.predict_proba(X_teste)[:, 1]
-        
-        # Calcula os pontos da curva
-        fpr, tpr, _ = roc_curve(Y_teste, y_prob)
-        auc_score = auc(fpr, tpr)
-        
-        # Plota a linha
-        plt.plot(fpr, tpr, linewidth=2, label=f'{nome} (AUC = {auc_score:.3f})')
-        print(f"Plotando curva para: {nome}")
-
-# 4. Finalização e Salvamento
-plt.xlim([0.0, 1.0])
-plt.ylim([0.0, 1.05])
-plt.xlabel('Taxa de Falsos Positivos (False Positive Rate)', fontsize=12)
-plt.ylabel('Taxa de Verdadeiros Positivos (Recall)', fontsize=12)
-plt.title('Comparação da Curva ROC - Modelos de Renda', fontsize=16)
-plt.legend(loc="lower right", fontsize=12)
-plt.grid(alpha=0.3)
-
-# Salva o arquivo
-plt.savefig('grafico_curvaROC.jpg')
-
-print("\n--- VERIFICAÇÃO DE OVERFITTING ---\n")
-
-for nome, modelo in modelos.items():
-    # 1. Treina o modelo
-    modelo.fit(X_treino, Y_treino)
-    
-    # 2. Previsão na base de TREINO (Memorização)
-    # Se tiver predict_proba (ideal para AUC), usa ele. Se não, usa predict.
-    if hasattr(modelo, "predict_proba"):
-        y_prob_treino = modelo.predict_proba(X_treino)[:, 1]
         y_prob_teste = modelo.predict_proba(X_teste)[:, 1]
+        y_prob_treino = modelo.predict_proba(X_treino)[:, 1] # checagem de overfitting
+        
+        # plotando curva ROC
+        fpr, tpr, _ = roc_curve(Y_teste, y_prob_teste)
+        auc_score = auc(fpr, tpr)
+        plt.plot(fpr, tpr, linewidth=2, label=f'{nome} (AUC = {auc_score:.3f})')
+        
+        # cálculo de possível overfitting dos modelos
         metric_treino = roc_auc_score(Y_treino, y_prob_treino)
         metric_teste = roc_auc_score(Y_teste, y_prob_teste)
         nome_metrica = "ROC-AUC"
+        
     else:
-        # Fallback para acurácia se não tiver probabilidade
-        y_pred_treino = modelo.predict(X_treino)
+        # fallback (caso algum modelo futuro não tenha predict_proba)
         y_pred_teste = modelo.predict(X_teste)
+        y_pred_treino = modelo.predict(X_treino)
         metric_treino = accuracy_score(Y_treino, y_pred_treino)
         metric_teste = accuracy_score(Y_teste, y_pred_teste)
         nome_metrica = "Acurácia"
 
-    # 3. Calcula a diferença (Gap)
-    diferenca = metric_treino - metric_teste
+    # análise de overfitting dos modelos
+    gap = metric_treino - metric_teste
+    print(f"[{nome}] Análise de Generalização - ({nome_metrica}):")
+    print(f"   Treino: {metric_treino:.4f} | Teste: {metric_teste:.4f} | Gap: {gap:.4f}")
     
-    print(f"Analisando {nome}:")
-    print(f" >> {nome_metrica} no TREINO: {metric_treino:.4f}")
-    print(f" >> {nome_metrica} no TESTE:  {metric_teste:.4f}")
-    print(f" >> Diferença (Gap):  {diferenca:.4f}")
-    
-    if diferenca > 0.10: # Se a diferença for maior que 10%
-        print(" ⚠️  ALERTA DE OVERFITTING GRAVE!")
-    elif diferenca > 0.05: # Se for maior que 5%
-        print(" ⚠️  Sinal de alerta (leve overfitting)")
+    if gap > 0.10:
+        print("ALTO OVERFITTING")
+    elif gap > 0.05:
+        print("LEVE OVERFITTING")
     else:
-        print(" ✅ Modelo estável (bom generalista)")
-        
+        print("Modelo estável!")
     print("-" * 30)
+    print('\n')
+
+# configuração final do gráfico
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('Taxa de Falsos Positivos (FPR)', fontsize=12)
+plt.ylabel('Taxa de Verdadeiros Positivos (Recall)', fontsize=12)
+plt.title('Curva ROC - Comparação de Modelos', fontsize=16)
+plt.legend(loc="lower right", fontsize=12)
+plt.grid(alpha=0.3)
+plt.savefig('grafico_curvaROC.jpg')
