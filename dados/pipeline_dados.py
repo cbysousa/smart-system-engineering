@@ -1,4 +1,6 @@
 import pandas as pd
+# import numpy as np
+import os
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import RobustScaler,OneHotEncoder,LabelEncoder
@@ -17,6 +19,7 @@ def tratamento(adulto:pd.DataFrame):
 
     Removemos também linhas duplicadas.
     '''
+    # dataset.replace('?', np.nan(), inplace=True)
     dataset.drop(columns=['fnlwgt','education'],inplace=True)
     dataset.dropna(inplace=True)
     dataset.drop_duplicates(inplace=True)
@@ -38,5 +41,29 @@ def tratamento(adulto:pd.DataFrame):
                                                 ('nom', pipe_cat, colunas_categoricas)])
 
     X_tratado = tratamento.fit_transform(X)
+    
+    nomes_colunas = tratamento.get_feature_names_out()
+    
+    try:
+        df_final = pd.DataFrame(X_tratado.toarray(), columns=nomes_colunas)
+    except AttributeError:
+        df_final = pd.DataFrame(X_tratado, columns=nomes_colunas)
+        
+    df_final['income'] = Y
+    
+    pasta_atual = os.path.dirname(os.path.abspath(__file__))
 
-    return X_tratado,Y
+    caminho_saida = os.path.join(pasta_atual, 'adult_processado.csv')
+
+    df_final.to_csv(caminho_saida, index=False)
+
+def main():
+    adult = pd.read_csv("dados/adult.csv", na_values='?')
+    tratamento(adult)
+    path = "dados/adult_processado.csv"
+    df = pd.read_csv(path)
+    a = df.head()
+    print(a)
+
+if __name__ == '__main__':
+    main()
