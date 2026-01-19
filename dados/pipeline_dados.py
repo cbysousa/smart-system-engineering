@@ -60,10 +60,6 @@ def tratamento(adulto:pd.DataFrame):
 def main():
     adult = pd.read_csv("dados/adult.csv", na_values='?')
     tratamento(adult)
-    path = "dados/adult_processado.csv"
-    df = pd.read_csv(path)
-    a = df.head()
-    print(a)
 
 if __name__ == '__main__':
     main()
