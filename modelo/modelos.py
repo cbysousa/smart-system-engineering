@@ -164,45 +164,45 @@ import os
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import cross_val_score
 
-print("\n====== Gerando Relatório e Salvando Modelo (Parte 3) ======\n")
+print("\n[INFO] Iniciando etapa de avaliação e exportação dos artefatos...")
 
-# Configurando pasta de saída
-pasta_destino = 'models_output'
-if not os.path.exists(pasta_destino):
-    os.makedirs(pasta_destino)
+# Cria o diretório de persistência caso não exista
+output_dir = 'models_output'
+if not os.path.exists(output_dir):
+    os.makedirs(output_dir)
 
-# Caminhos dos arquivos
-arquivo_relatorio = os.path.join(pasta_destino, 'relatorio_performance.txt')
-arquivo_modelo = os.path.join(pasta_destino, 'modelo_adult_income.pkl')
+# Definição dos caminhos para o relatório técnico e o binário do modelo
+report_path = os.path.join(output_dir, 'relatorio_performance.txt')
+model_path = os.path.join(output_dir, 'modelo_adult_income.pkl')
 
-# 1. Gerando o Relatório de Performance
-print(f"Comparando modelos e salvando em: {arquivo_relatorio} ...")
+# Geração do comparativo de métricas
+print(f"Calculando métricas de validação cruzada e escrevendo em: {report_path}")
 
-with open(arquivo_relatorio, "w") as f:
-    f.write("=========================================\n")
-    f.write("   RELATÓRIO DE PERFORMANCE DOS MODELOS  \n")
-    f.write("=========================================\n\n")
+with open(report_path, "w") as f:
+    f.write("-" * 40 + "\n")
+    f.write("RELATÓRIO TÉCNICO - PERFORMANCE DOS MODELOS\n")
+    f.write("-" * 40 + "\n\n")
     
-    # Itera sobre todos os modelos que você testou
+    # Itera sobre os modelos instanciados para calcular a acurácia média
     for nome, modelo in modelos.items():
-        # Vamos fazer uma validação rápida (cross-validation) para ter uma métrica robusta
-        # cv=5 significa que ele testa 5 vezes e tira a média
+        # Aplica validação cruzada (k=5) para garantir robustez estatística na métrica
         scores = cross_val_score(modelo, X, Y, cv=5, scoring='accuracy')
         media_acc = scores.mean() * 100
         
-        linha = f"Modelo: {nome:<20} | Acurácia Média: {media_acc:.2f}%\n"
-        print(linha.strip()) # Mostra no terminal
-        f.write(linha)       # Salva no arquivo
+        line = f"Modelo: {nome:<20} | Acurácia (CV Média): {media_acc:.2f}%\n"
+        print(f" > Processado: {line.strip()}") 
+        f.write(line)
 
-    f.write("\n=========================================\n")
-    f.write("Modelo Vencedor escolhido para Produção: Gradient Boost\n")
-    f.write("=========================================\n")
+    # Registro da decisão de engenharia
+    f.write("\n" + "-" * 40 + "\n")
+    f.write("Modelo selecionado para deploy: Gradient Boost\n")
+    f.write("-" * 40 + "\n")
 
-# 2. Treinando e Salvando o Campeão (Gradient Boost)
-print(f"\nSalvando o modelo campeão em: {arquivo_modelo} ...")
+# Serialização do modelo campeão
+print(f"\nTreinando versão final do Gradient Boost e serializando em: {model_path}")
 
-modelo_final = modelos["Gradient Boost"]
-modelo_final.fit(X, Y) # Treina com tudo antes de salvar
-joblib.dump(modelo_final, arquivo_modelo)
+final_model = modelos["Gradient Boost"]
+final_model.fit(X, Y) # Retreina com o dataset completo para maximizar aprendizado
+joblib.dump(final_model, model_path)
 
-print(f"✅ Sucesso! Relatório e Modelo salvos na pasta '{pasta_destino}'.")
+print(f"[INFO] Processo finalizado. Artefatos de modelo e relatório salvos em '{output_dir}'.")
