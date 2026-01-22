@@ -1,6 +1,3 @@
-`# Smart System Engineering
-This repository hosts the final project developed for the Smart Systems Engineering course, taught by Lincoln Rocha at the Federal University of Ceará (UFC)`
-
 # Trabalho Final - Engenharia de Sistemas Inteligentes
 
 Projeto de classificação (Machine Learning) utilizando o dataset **Adult Income**, com foco em engenharia de software e reprodutibilidade. O sistema prevê se a renda de uma pessoa excede 50k/ano com base em dados demográficos.
